@@ -145,6 +145,11 @@ The patterns are heuristics, not a guarantee. Add new patterns over time as new 
 
 ## Update mode — execution
 
+0. **Symlink shortcut detection.** Test `[ "$SOURCE_DIR" -ef "<repo>/plugins/<name>/skills/<name>" ]` (bash `-ef` returns true if both paths point to the same inode, transparent through any number of symlink hops). If true, source and target are the same physical folder — rsync would be a no-op, so skip ahead to commit:
+   - If `git -C <repo> status --short` is empty → print *"Nothing to publish — source is symlinked to the repo and the repo has no pending changes. Make your edits, then re-run."* and exit.
+   - If the only changes are inside `plugins/<name>/` → jump to step 4 (commit-message question) and continue from there.
+   - If there are changes elsewhere too → warn, list the unrelated files, and ask whether to include them in this commit (offer `git add plugins/<name>` for a narrow commit, vs `git add .` for everything).
+
 1. Diff: `diff -ruN "$SOURCE_DIR/" <repo>/plugins/<name>/skills/<name>/` — print a short summary (count of changed/added/removed files).
 2. If no diff, exit early: *"Nothing to publish — local and repo versions are identical."*
 3. Sync: `rsync -a --delete "$SOURCE_DIR/" <repo>/plugins/<name>/skills/<name>/` (the trailing slashes matter — copy *contents*, not the folder itself).
