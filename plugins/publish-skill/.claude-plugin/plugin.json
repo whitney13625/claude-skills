@@ -1,0 +1,6 @@
+{
+  "name": "publish-skill",
+  "description": "Promote a local Claude Code skill into a marketplace repo — generates plugin.json, updates marketplace.json + README, commits and pushes.",
+  "version": "0.1.0",
+  "author": { "name": "whitney13625" }
+}
