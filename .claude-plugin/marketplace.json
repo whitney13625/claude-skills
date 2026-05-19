@@ -1,0 +1,14 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "whitney-claude-skills",
+  "description": "Whitney's personal Claude Code skills",
+  "owner": { "name": "whitney13625" },
+  "plugins": [
+    {
+      "name": "bootstrap-xcode-project",
+      "description": "Scaffold a new iOS Xcode project via XcodeGen — .xcodeproj, Swift Testing + XCUITest targets, MVVM folders, optional SwiftData/CoreData/GRDB, SwiftLint, private GitHub repo, GitHub Actions CI.",
+      "category": "development",
+      "source": "./plugins/bootstrap-xcode-project"
+    }
+  ]
+}

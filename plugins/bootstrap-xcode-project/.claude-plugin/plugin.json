@@ -1,0 +1,6 @@
+{
+  "name": "bootstrap-xcode-project",
+  "description": "Scaffold a new iOS Xcode project via XcodeGen — .xcodeproj, Swift Testing + XCUITest targets, MVVM folders, optional SwiftData/CoreData/GRDB, SwiftLint, private GitHub repo, GitHub Actions CI.",
+  "version": "0.1.0",
+  "author": { "name": "whitney13625" }
+}

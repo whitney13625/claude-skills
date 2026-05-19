@@ -1,0 +1,13 @@
+// placeholders: ProjectName
+import SwiftUI
+
+@main
+struct {{ProjectName}}App: App {
+    private let dependencies = DependencyContainer.live()
+
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+        }
+    }
+}

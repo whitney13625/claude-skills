@@ -1,0 +1,25 @@
+## Swift code conventions
+
+- Use Swift 6 concurrency, avoiding @unchecked Sendable
+- Name variables using camelCase, name files using PascalCase
+- Use 4-space indentation
+- Prefer SwiftUI over UIKit unless explicitly targeting UIKit
+- Target iOS 26 and Swift 6.2
+- Use async/await over completion handlers
+- Prefer structured concurrency over unstructured tasks
+- Use environment variable (Environment.xcconfig, Environment-Local.xcconfig)
+
+## Architecture
+
+- Use MVVM with Observable for view models
+- Keep views thin; move logic into view models or dedicated services
+- Use repository pattern, service level and dependency injection
+
+## Testing
+
+- Write tests for all new logic using Swift Testing
+- Run tests before creating a pull request
+- Prefer testing behavior over implementation details
+
+## Git
+- Commit message format: feat/fix/refactor: Description

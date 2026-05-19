@@ -1,0 +1,30 @@
+// placeholders: ProjectName
+import CoreData
+import Foundation
+
+@MainActor
+final class CoreDataStack {
+    static let shared = CoreDataStack()
+
+    let container: NSPersistentContainer
+
+    private init(inMemory: Bool = false) {
+        container = NSPersistentContainer(name: "{{ProjectName}}")
+        if inMemory, let description = container.persistentStoreDescriptions.first {
+            description.url = URL(fileURLWithPath: "/dev/null")
+        }
+        container.loadPersistentStores { _, error in
+            if let error {
+                assertionFailure("CoreData failed to load: \(error)")
+            }
+        }
+        container.viewContext.automaticallyMergesChangesFromParent = true
+    }
+
+    var viewContext: NSManagedObjectContext { container.viewContext }
+
+    func save() throws {
+        guard viewContext.hasChanges else { return }
+        try viewContext.save()
+    }
+}

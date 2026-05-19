@@ -1,0 +1,16 @@
+// placeholders: ProjectName
+import XCTest
+
+final class {{ProjectName}}UITests: XCTestCase {
+
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+    }
+
+    @MainActor
+    func testAppLaunches() throws {
+        let app = XCUIApplication()
+        app.launch()
+        XCTAssertTrue(app.staticTexts["Hello, {{ProjectName}}"].waitForExistence(timeout: 5))
+    }
+}

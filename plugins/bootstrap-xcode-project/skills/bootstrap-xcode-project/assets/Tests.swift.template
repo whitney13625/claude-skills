@@ -1,0 +1,12 @@
+// placeholders: ProjectName
+import Testing
+@testable import {{ProjectName}}
+
+struct {{ProjectName}}Tests {
+
+    @Test("Dependency container resolves a live instance")
+    func dependencyContainerLive() {
+        let container = DependencyContainer.live()
+        #expect(type(of: container) == DependencyContainer.self)
+    }
+}

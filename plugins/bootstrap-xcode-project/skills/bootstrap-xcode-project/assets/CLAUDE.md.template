@@ -1,0 +1,7 @@
+@AGENTS_SHARED.md
+
+## Claude Code Only
+- Run test using: xcodebuild test -scheme {{ProjectName}}
+- Swiftlint before build
+- Write comments in English
+- Before start building, ask if I want to make a PR automatically

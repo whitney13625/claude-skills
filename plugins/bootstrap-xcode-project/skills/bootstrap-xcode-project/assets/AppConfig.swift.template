@@ -1,0 +1,6 @@
+// placeholders: (none)
+import Foundation
+
+struct AppConfig: Codable {
+    var API_HOST_NAME: String
+}

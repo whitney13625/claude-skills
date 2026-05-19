@@ -1,0 +1,55 @@
+# placeholders: ProjectName
+disabled_rules:
+  - trailing_whitespace
+  - todo
+
+opt_in_rules:
+  - empty_count
+  - closure_spacing
+  - explicit_init
+  - first_where
+  - sorted_imports
+  - unused_import
+  - vertical_whitespace_closing_braces
+  - vertical_whitespace_opening_braces
+
+included:
+  - {{ProjectName}}
+  - {{ProjectName}}Tests
+  - {{ProjectName}}UITests
+
+excluded:
+  - build
+  - DerivedData
+  - .build
+  - Pods
+  - Carthage
+
+line_length:
+  warning: 120
+  error: 200
+  ignores_comments: true
+  ignores_urls: true
+
+identifier_name:
+  min_length:
+    warning: 2
+  excluded:
+    - id
+    - x
+    - y
+    - z
+
+type_name:
+  min_length:
+    warning: 3
+
+file_length:
+  warning: 400
+  error: 800
+
+function_body_length:
+  warning: 60
+  error: 120
+
+reporter: "xcode"

@@ -1,0 +1,9 @@
+// placeholders: (none)
+import Foundation
+
+extension Decodable {
+    static func fromInfoPList(from: Bundle = .main) -> Self {
+        let rawData = try! JSONSerialization.data(withJSONObject: from.infoDictionary!)
+        return try! JSONDecoder().decode(Self.self, from: rawData)
+    }
+}

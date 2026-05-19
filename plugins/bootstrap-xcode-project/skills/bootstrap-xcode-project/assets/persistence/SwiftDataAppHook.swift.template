@@ -1,0 +1,15 @@
+// Snippet — merge into {{ProjectName}}App.swift when SwiftData is selected.
+//
+// import SwiftData
+//
+// @main
+// struct {{ProjectName}}App: App {
+//     private let dependencies = DependencyContainer.live()
+//
+//     var body: some Scene {
+//         WindowGroup {
+//             ContentView()
+//         }
+//         .modelContainer(for: Item.self)
+//     }
+// }

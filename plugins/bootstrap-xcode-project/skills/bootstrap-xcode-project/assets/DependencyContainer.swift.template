@@ -1,0 +1,15 @@
+// placeholders: (none)
+import Foundation
+
+struct DependencyContainer {
+
+    let appConfig: AppConfig
+
+    static func live() -> DependencyContainer {
+        let config = AppConfig.fromInfoPList()
+
+        return DependencyContainer(
+            appConfig: config
+        )
+    }
+}

@@ -1,0 +1,11 @@
+// placeholders: (none)
+// Committed defaults. Values come from shell environment at build time.
+// Local overrides live in Environment-Local.xcconfig (gitignored) — the
+// optional include below lets each developer override without editing this file.
+
+API_HOST_NAME = ${API_HOST_NAME}
+
+// Expose to Info.plist so Swift can read it at runtime via Bundle.main.
+INFOPLIST_KEY_API_HOST_NAME = $(API_HOST_NAME)
+
+#include? "Environment-Local.xcconfig"

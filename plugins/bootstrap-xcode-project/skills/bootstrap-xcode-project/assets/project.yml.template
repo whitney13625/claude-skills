@@ -1,0 +1,71 @@
+# placeholders: ProjectName, BundleIDPrefix, BundleID, IOSDeployment, SwiftLintBuildPhase
+# SwiftLintBuildPhase: pass empty string to disable, or a `preBuildScripts:` YAML block (see SKILL.md) to enable.
+name: {{ProjectName}}
+options:
+  bundleIdPrefix: {{BundleIDPrefix}}
+  deploymentTarget:
+    iOS: "{{IOSDeployment}}"
+  createIntermediateGroups: true
+  groupSortPosition: top
+  generateEmptyDirectories: true
+settings:
+  base:
+    SWIFT_VERSION: "6.2"
+    SWIFT_STRICT_CONCURRENCY: complete
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+targets:
+  {{ProjectName}}:
+    type: application
+    platform: iOS
+    deploymentTarget: "{{IOSDeployment}}"
+    sources:
+      - path: {{ProjectName}}
+        excludes:
+          - "Config/*.xcconfig"
+    configFiles:
+      Debug: {{ProjectName}}/Config/Environment.xcconfig
+      Release: {{ProjectName}}/Config/Environment.xcconfig
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: {{BundleID}}
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        TARGETED_DEVICE_FAMILY: "1,2"
+{{SwiftLintBuildPhase}}
+  {{ProjectName}}Tests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "{{IOSDeployment}}"
+    sources:
+      - path: {{ProjectName}}Tests
+    dependencies:
+      - target: {{ProjectName}}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: {{BundleID}}.tests
+        GENERATE_INFOPLIST_FILE: YES
+  {{ProjectName}}UITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "{{IOSDeployment}}"
+    sources:
+      - path: {{ProjectName}}UITests
+    dependencies:
+      - target: {{ProjectName}}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: {{BundleID}}.uitests
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  {{ProjectName}}:
+    build:
+      targets:
+        {{ProjectName}}: all
+        {{ProjectName}}Tests: [test]
+        {{ProjectName}}UITests: [test]
+    test:
+      targets:
+        - {{ProjectName}}Tests
+        - {{ProjectName}}UITests

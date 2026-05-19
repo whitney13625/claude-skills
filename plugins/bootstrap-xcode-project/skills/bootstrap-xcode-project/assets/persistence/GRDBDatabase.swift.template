@@ -1,0 +1,49 @@
+// placeholders: ProjectName
+import Foundation
+import GRDB
+
+// Requires adding the GRDB.swift package to project.yml:
+//   packages:
+//     GRDB:
+//       url: https://github.com/groue/GRDB.swift
+//       from: 7.0.0
+// And listing `GRDB` under the app target's dependencies.
+
+actor AppDatabase {
+    static let shared: AppDatabase = {
+        do {
+            let url = try FileManager.default
+                .url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+                .appendingPathComponent("{{ProjectName}}.sqlite")
+            let writer = try DatabasePool(path: url.path)
+            return try AppDatabase(writer: writer)
+        } catch {
+            fatalError("Failed to open database: \(error)")
+        }
+    }()
+
+    private let writer: any DatabaseWriter
+
+    init(writer: any DatabaseWriter) throws {
+        self.writer = writer
+        try migrator.migrate(writer)
+    }
+
+    private var migrator: DatabaseMigrator {
+        var migrator = DatabaseMigrator()
+        migrator.registerMigration("v1.createItem") { db in
+            try db.create(table: "item") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("title", .text).notNull()
+                t.column("createdAt", .datetime).notNull()
+            }
+        }
+        return migrator
+    }
+}
+
+struct Item: Codable, FetchableRecord, MutablePersistableRecord {
+    var id: Int64?
+    var title: String
+    var createdAt: Date
+}
