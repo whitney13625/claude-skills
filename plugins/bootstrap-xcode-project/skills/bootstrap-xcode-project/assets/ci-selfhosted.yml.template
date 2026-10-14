@@ -74,12 +74,16 @@ jobs:
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
 
       # Plain xcodebuild output (no xcpretty), so the Swift Testing summary shows up in the log.
+      # The result bundle goes to the per-job temp dir: a self-hosted workspace keeps files between runs,
+      # and xcodebuild refuses to overwrite an existing -resultBundlePath.
       - name: Build & Test
         run: |
+          RESULT="$RUNNER_TEMP/TestResults.xcresult"
+          rm -rf "$RESULT"
           xcodebuild test \
             -scheme {{ProjectName}} \
             -destination "id=${{ steps.simulator.outputs.udid }}" \
-            -resultBundlePath TestResults.xcresult
+            -resultBundlePath "$RESULT"
 
       - name: Delete the simulator
         if: always() && steps.simulator.outputs.udid != ''
@@ -90,4 +94,4 @@ jobs:
         uses: actions/upload-artifact@v5
         with:
           name: TestResults
-          path: TestResults.xcresult
+          path: ${{ runner.temp }}/TestResults.xcresult
