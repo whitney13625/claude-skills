@@ -1,7 +1,7 @@
 @AGENTS_SHARED.md
 
 ## Claude Code Only
-- Run test using: xcodebuild test -scheme {{ProjectName}}
+- Run tests using: `xcodebuild test -scheme {{ProjectName}} -destination 'platform=iOS Simulator,name=<simulator>'` — the `-destination` is required (without it xcodebuild resolves to a generic iOS device and fails). Pick `<simulator>` from `xcodebuild -showdestinations -scheme {{ProjectName}}`.
 - Swiftlint before build
 - Write comments in English
 - Before start building, ask if I want to make a PR automatically

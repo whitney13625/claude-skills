@@ -6,10 +6,16 @@ struct DependencyContainer {
     let appConfig: AppConfig
 
     static func live() -> DependencyContainer {
-        let config = AppConfig.fromInfoPList()
-
-        return DependencyContainer(
-            appConfig: config
-        )
+        do {
+            let config = try AppConfig.fromInfoPList()
+            return DependencyContainer(
+                appConfig: config
+            )
+        } catch {
+            // A key is missing from the built product's Info.plist. Every
+            // AppConfig property must have a matching entry under the app
+            // target's `info.properties` in project.yml.
+            fatalError("Failed to decode AppConfig from Info.plist: \(error)")
+        }
     }
 }

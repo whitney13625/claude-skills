@@ -46,7 +46,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.cwlab.MyApp
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
-    info:                         # only if NOT using GENERATE_INFOPLIST_FILE
+    info:                         # merged with GENERATE_INFOPLIST_FILE output (explicit file wins)
       path: MyApp/Info.plist
       properties:
         CFBundleShortVersionString: "1.0"
@@ -71,7 +71,7 @@ targets:
 ## Common gotchas
 
 - Bundle ID for test targets **must** differ from the app's (append `.tests`, `.uitests`).
-- `GENERATE_INFOPLIST_FILE: YES` removes the need for an explicit `Info.plist`. If you set it, do not also set `info.path`.
+- `GENERATE_INFOPLIST_FILE: YES` only injects Apple's **curated** `INFOPLIST_KEY_*` settings — custom `INFOPLIST_KEY_<Name>` build settings are silently dropped. To ship custom Info.plist keys, also set `info.path` + `info.properties` (e.g. `MY_KEY: "$(MY_KEY)"`); Xcode merges that file with the generated content, and the explicit file's keys win.
 - `createIntermediateGroups: true` is almost always what you want — without it, nested folders collapse into a single group named with the full path.
 - Run `xcodegen generate` from the directory containing `project.yml`. Cwd matters.
 - After changing `project.yml`, regenerate and re-open the `.xcodeproj` — Xcode does not hot-reload it.

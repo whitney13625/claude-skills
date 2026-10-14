@@ -22,9 +22,18 @@ targets:
       - path: {{ProjectName}}
         excludes:
           - "Config/*.xcconfig"
+          - "Config/Info.plist"
     configFiles:
       Debug: {{ProjectName}}/Config/Environment.xcconfig
       Release: {{ProjectName}}/Config/Environment.xcconfig
+    # Custom runtime keys MUST go through this Info.plist (values resolve from
+    # build settings via $(VAR)). GENERATE_INFOPLIST_FILE only injects Apple's
+    # curated INFOPLIST_KEY_* set — custom INFOPLIST_KEY_ names are silently
+    # dropped, which crashes AppConfig decoding at launch.
+    info:
+      path: {{ProjectName}}/Config/Info.plist
+      properties:
+        API_HOST_NAME: "$(API_HOST_NAME)"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: {{BundleID}}

@@ -2,8 +2,16 @@
 import Foundation
 
 extension Decodable {
-    static func fromInfoPList(from: Bundle = .main) -> Self {
-        let rawData = try! JSONSerialization.data(withJSONObject: from.infoDictionary!)
-        return try! JSONDecoder().decode(Self.self, from: rawData)
+    static func fromInfoPList(from bundle: Bundle = .main) throws -> Self {
+        guard let infoDictionary = bundle.infoDictionary else {
+            throw DecodingError.dataCorrupted(
+                DecodingError.Context(
+                    codingPath: [],
+                    debugDescription: "Bundle \(bundle.bundleURL) has no Info.plist dictionary"
+                )
+            )
+        }
+        let rawData = try JSONSerialization.data(withJSONObject: infoDictionary)
+        return try JSONDecoder().decode(Self.self, from: rawData)
     }
 }

@@ -5,7 +5,9 @@
 
 API_HOST_NAME = ${API_HOST_NAME}
 
-// Expose to Info.plist so Swift can read it at runtime via Bundle.main.
-INFOPLIST_KEY_API_HOST_NAME = $(API_HOST_NAME)
+// Runtime exposure happens through the app target's `info:` block in
+// project.yml, which puts API_HOST_NAME = $(API_HOST_NAME) into a real
+// Info.plist. Do NOT use INFOPLIST_KEY_* for custom keys — Xcode only
+// honors a curated set of those and silently drops the rest.
 
 #include? "Environment-Local.xcconfig"

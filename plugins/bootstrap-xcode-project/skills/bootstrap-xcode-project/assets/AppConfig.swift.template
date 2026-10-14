@@ -1,6 +1,9 @@
 // placeholders: (none)
 import Foundation
 
+/// Each property must have a matching key under the app target's
+/// `info.properties` in project.yml (which resolves it from the
+/// Environment.xcconfig build setting of the same name).
 struct AppConfig: Codable {
     var API_HOST_NAME: String
 }

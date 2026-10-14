@@ -9,9 +9,13 @@ opt_in_rules:
   - explicit_init
   - first_where
   - sorted_imports
-  - unused_import
   - vertical_whitespace_closing_braces
   - vertical_whitespace_opening_braces
+
+# Analyzer rules only run under `swiftlint analyze` (needs a compiler log);
+# listing them under opt_in_rules makes every plain `swiftlint` run warn.
+analyzer_rules:
+  - unused_import
 
 included:
   - {{ProjectName}}
