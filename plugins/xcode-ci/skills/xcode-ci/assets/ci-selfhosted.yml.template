@@ -1,0 +1,75 @@
+# placeholders: Scheme, UnitTestTarget, GitHubOwner, CIMajor
+name: CI
+
+# The fast gate for every PR and push to main: SwiftLint and the unit tests. The slow XCUITest suite lives in
+# ui-tests.yml so PR feedback does not wait on it.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Cancel superseded runs on pull requests only; every push to main keeps its full result.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  # The Xcode and iOS major version CI tests against. Raise it on purpose, not because a new Xcode appeared.
+  CI_MAJOR: "{{CIMajor}}"
+
+jobs:
+  test:
+    name: Lint & Unit Test
+    # Self-hosted runner registered once for the {{GitHubOwner}} organization and shared by its repos
+    # (labels: self-hosted, macOS, ARM64). It picks the newest installed Xcode and iOS simulator runtime of
+    # major version CI_MAJOR (above). If this job sits in "queued", the runner is offline or the Mac is asleep:
+    #   gh api orgs/{{GitHubOwner}}/actions/runners
+    runs-on: [self-hosted, macOS, ARM64]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Prepare iOS build
+        id: prepare
+        uses: ./.github/actions/prepare-ios
+        with:
+          ci-major: ${{ env.CI_MAJOR }}
+
+      # Errors fail the job; warnings show up as annotations on the PR.
+      - name: SwiftLint
+        run: |
+          if [ -f .swiftlint.yml ]; then
+            swiftlint lint --reporter github-actions-logging
+          else
+            echo "No .swiftlint.yml, skipping SwiftLint"
+          fi
+
+      # Plain xcodebuild output (no xcpretty), so the Swift Testing summary shows up in the log.
+      # The result bundle goes to the per-job temp dir: xcodebuild refuses to overwrite an existing -resultBundlePath.
+      # DerivedData persists between runs on the runner (see the prepare-ios action), so builds stay incremental.
+      - name: Build & Unit Test
+        run: |
+          RESULT="$RUNNER_TEMP/TestResults.xcresult"
+          rm -rf "$RESULT"
+          xcodebuild test \
+            -scheme {{Scheme}} \
+            -destination "id=${{ steps.prepare.outputs.udid }}" \
+            -derivedDataPath "${{ steps.prepare.outputs.derived-data }}" \
+            -resultBundlePath "$RESULT" \
+            -only-testing:{{UnitTestTarget}}
+
+      - name: Delete the simulator
+        if: always() && steps.prepare.outputs.udid != ''
+        run: xcrun simctl delete "${{ steps.prepare.outputs.udid }}" || true
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: TestResults
+          path: ${{ runner.temp }}/TestResults.xcresult

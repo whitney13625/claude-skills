@@ -1,0 +1,138 @@
+# placeholders: (none)
+name: Prepare iOS build
+description: >
+  Shared setup for the self-hosted macOS runner: Homebrew tools, the newest Xcode of CI_MAJOR, a persistent
+  DerivedData directory, the generated Xcode project and a throwaway iPhone simulator.
+  The caller deletes the simulator in an `if: always()` step (composite actions have no post step).
+
+inputs:
+  ci-major:
+    description: The Xcode and iOS major version to test against.
+    required: true
+  clean-derived-data:
+    description: Delete the persistent DerivedData before building.
+    required: false
+    default: "false"
+
+outputs:
+  udid:
+    description: UDID of the throwaway simulator.
+    value: ${{ steps.simulator.outputs.udid }}
+  derived-data:
+    description: Persistent DerivedData path for this runner and Xcode version.
+    value: ${{ steps.derived-data.outputs.path }}
+  cache-root:
+    description: Persistent per-runner, per-Xcode cache root (DerivedData, SwiftPM scratch paths).
+    value: ${{ steps.derived-data.outputs.root }}
+
+runs:
+  using: composite
+  steps:
+    # The runner's non-interactive shell does not load the profile that puts Homebrew on PATH.
+    - name: Add Homebrew to PATH
+      shell: bash
+      run: |
+        if [ ! -x /opt/homebrew/bin/brew ]; then
+          echo "::error::Homebrew not found at /opt/homebrew/bin on the runner"
+          exit 1
+        fi
+        echo "/opt/homebrew/bin" >> "$GITHUB_PATH"
+        echo "/opt/homebrew/sbin" >> "$GITHUB_PATH"
+
+    - name: Install build tools (XcodeGen, jq, SwiftLint)
+      shell: bash
+      env:
+        HOMEBREW_NO_AUTO_UPDATE: "1"
+        HOMEBREW_NO_INSTALL_CLEANUP: "1"
+      run: brew install xcodegen jq swiftlint
+
+    # The newest installed Xcode of major version CI_MAJOR, whatever `xcode-select -p` points to, so installing
+    # a newer Xcode on the runner Mac does not change what CI tests against.
+    - name: Select Xcode ${{ inputs.ci-major }}
+      shell: bash
+      env:
+        CI_MAJOR: ${{ inputs.ci-major }}
+      run: |
+        set -euo pipefail
+        BEST=""
+        BEST_VERSION=""
+        for APP in /Applications/Xcode*.app; do
+          PLIST="$APP/Contents/Info.plist"
+          [ -f "$PLIST" ] || continue
+          VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST" 2>/dev/null || true)
+          case "$VERSION" in
+            "$CI_MAJOR".*|"$CI_MAJOR")
+              if [ -z "$BEST_VERSION" ] || [ "$(printf '%s\n%s\n' "$BEST_VERSION" "$VERSION" | sort -V | tail -1)" = "$VERSION" ]; then
+                BEST="$APP"
+                BEST_VERSION="$VERSION"
+              fi
+              ;;
+          esac
+        done
+        if [ -z "$BEST" ]; then
+          echo "::error::No Xcode $CI_MAJOR.x in /Applications on this runner"
+          ls -d /Applications/Xcode*.app || true
+          exit 1
+        fi
+        echo "Using $BEST ($BEST_VERSION)"
+        echo "DEVELOPER_DIR=$BEST/Contents/Developer" >> "$GITHUB_ENV"
+        echo "CI_XCODE_VERSION=$BEST_VERSION" >> "$GITHUB_ENV"
+
+    - name: Show toolchain
+      shell: bash
+      run: |
+        xcodebuild -version
+        xcodegen --version
+        xcrun simctl list runtimes iOS
+
+    # Kept outside the workspace, which actions/checkout cleans, so builds stay incremental between runs.
+    # Keyed by runner (a second runner on the same Mac never shares it mid-build), by repository, and by Xcode
+    # version (a new Xcode starts fresh instead of reusing another compiler's products).
+    - name: Locate persistent DerivedData
+      id: derived-data
+      shell: bash
+      env:
+        CLEAN: ${{ inputs.clean-derived-data }}
+      run: |
+        set -euo pipefail
+        ROOT="$HOME/ci-cache/$RUNNER_NAME/$GITHUB_REPOSITORY/xcode-$CI_XCODE_VERSION"
+        DERIVED="$ROOT/DerivedData"
+        if [ "$CLEAN" = "true" ]; then
+          echo "Deleting $ROOT for a clean build"
+          rm -rf "$ROOT"
+        fi
+        mkdir -p "$DERIVED"
+        du -sh "$ROOT" 2>/dev/null || true
+        echo "root=$ROOT" >> "$GITHUB_OUTPUT"
+        echo "path=$DERIVED" >> "$GITHUB_OUTPUT"
+
+    # Only for XcodeGen projects; a committed .xcodeproj is used as is.
+    - name: Generate Xcode project
+      if: hashFiles('project.yml') != ''
+      shell: bash
+      run: xcodegen generate
+
+    # A throwaway simulator per job: the same Mac runs other repos' CI too, and data written by earlier runs
+    # (HealthKit, keychain, files) would otherwise persist in a shared simulator.
+    - name: Create a fresh iPhone simulator
+      id: simulator
+      shell: bash
+      env:
+        CI_MAJOR: ${{ inputs.ci-major }}
+      run: |
+        set -euo pipefail
+        # Newest iOS CI_MAJOR.x runtime, and an iPhone that this runtime itself lists as supported. (The newest
+        # device type Xcode knows is not always supported by the newest installed runtime: "Incompatible device".)
+        LATEST=$(xcrun simctl list runtimes iOS available --json | jq -c --arg major "$CI_MAJOR" '
+          [.runtimes[] | select(.version | startswith($major + "."))]
+          | sort_by(.version | split(".") | map(tonumber)) | last')
+        RUNTIME=$(echo "$LATEST" | jq -r '.identifier')
+        DEVICE_TYPE=$(echo "$LATEST" | jq -r '
+          [.supportedDeviceTypes[] | select(.productFamily == "iPhone")] | first | .identifier')
+        if [ -z "$RUNTIME" ] || [ "$RUNTIME" = "null" ] || [ -z "$DEVICE_TYPE" ] || [ "$DEVICE_TYPE" = "null" ]; then
+          echo "::error::No iOS $CI_MAJOR.x runtime or iPhone device type on this runner"
+          exit 1
+        fi
+        UDID=$(xcrun simctl create "CI-${GITHUB_REPOSITORY##*/}-${GITHUB_RUN_ID}-${GITHUB_JOB}" "$DEVICE_TYPE" "$RUNTIME")
+        echo "Using $DEVICE_TYPE on $RUNTIME ($UDID)"
+        echo "udid=$UDID" >> "$GITHUB_OUTPUT"

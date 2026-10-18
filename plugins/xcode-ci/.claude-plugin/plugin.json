@@ -1,0 +1,8 @@
+{
+  "name": "xcode-ci",
+  "description": "Set up or upgrade GitHub Actions CI for an Xcode app — a fast PR gate (SwiftLint + unit tests) and a separate UI test workflow, on a self-hosted macOS runner with persistent DerivedData or on GitHub-hosted runners.",
+  "version": "0.1.0",
+  "author": {
+    "name": "whitney13625"
+  }
+}

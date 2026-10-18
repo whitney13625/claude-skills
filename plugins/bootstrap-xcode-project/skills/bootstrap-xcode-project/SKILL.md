@@ -1,6 +1,6 @@
 ---
 name: bootstrap-xcode-project
-description: Scaffold a new iOS Xcode project via XcodeGen — .xcodeproj, Swift Testing + XCUITest targets, MVVM folders, optional SwiftData/CoreData/GRDB, SwiftLint, private GitHub repo (in your configured GitHub organization by default), GitHub Actions CI (on that organization's self-hosted runner by default, GitHub-hosted on request). Triggers on "bootstrap xcode", "new iOS project", "建一個新的 Xcode project", or any request to start a fresh iOS app from scratch.
+description: Scaffold a new iOS Xcode project via XcodeGen — .xcodeproj, Swift Testing + XCUITest targets, MVVM folders, optional SwiftData/CoreData/GRDB, SwiftLint, private GitHub repo (in your configured GitHub organization by default), GitHub Actions CI via the xcode-ci skill. Triggers on "bootstrap xcode", "new iOS project", "建一個新的 Xcode project", or any request to start a fresh iOS app from scratch.
 ---
 
 # Bootstrap Xcode Project
@@ -41,8 +41,7 @@ Each template's first line is a `# placeholders: ...` comment listing the keys i
 - `DependencyContainer.swift.template` → `{ProjectName}/DI/DependencyContainer.swift` (injects `AppConfig.fromInfoPList()`)
 - `Tests.swift.template` → `{ProjectName}Tests/{ProjectName}Tests.swift`
 - `UITests.swift.template` → `{ProjectName}UITests/{ProjectName}UITests.swift`
-- `ci-selfhosted.yml.template` → `.github/workflows/ci.yml` (only if GitHub + CI with the **self-hosted** runner, the default; placeholders `ProjectName`, `GitHubOwner`)
-- `ci.yml.template` → `.github/workflows/ci.yml` (only if GitHub + CI with **GitHub-hosted** `macos-26`)
+- *(no CI templates)* — GitHub Actions CI comes from the separate **xcode-ci** skill (see post-build prompt B).
 - `CLAUDE.md.template` → `./CLAUDE.md` (only if AI files = yes)
 - `AGENTS_SHARED.md.template` → `./AGENTS_SHARED.md` (only if AI files = yes)
 - *(no `agents.md` template)* — created as a symlink: `ln -sf AGENTS_SHARED.md agents.md` (only if AI files = yes **and** symlink question = yes)
@@ -68,6 +67,21 @@ For `project.yml`, the `SwiftLintBuildPhase` placeholder takes either an empty s
 
 The `uname -m` PATH prepend is SwiftLint's recommended guard and is **required**: when Xcode is launched from the Dock, launchd's PATH lacks `/opt/homebrew/bin`, so a bare `if which swiftlint` guard silently no-ops on Apple Silicon.
 
+## User config
+
+Nothing user-specific is hard-coded. Read `~/.config/bootstrap-xcode-project.json` before asking any question:
+
+```json
+{ "bundleIdPrefix": "com.example", "githubOrg": "<organization login>" }
+```
+
+- **`bundleIdPrefix`** — reverse-DNS prefix for new apps (`com.example` → bundle ID `com.example.{ProjectName}`). If the key is missing, ask once: *"Which bundle ID prefix should new apps use (reverse DNS, such as `com.yourname`)?"* It must match `^[A-Za-z][A-Za-z0-9-]*(\.[A-Za-z][A-Za-z0-9-]*)+$`; ask again if it doesn't.
+- **`githubOrg`** — the GitHub organization for new repos and the shared self-hosted runner. If the key is missing, ask once: *"Which GitHub organization should new repos and the shared self-hosted runner live in? Leave blank to use your personal account."*
+  - Blank or `null` means personal account: the defaults then become `GitHub owner: personal account` and `CI runner: GitHub-hosted`, because personal-account self-hosted runners are repo-scoped (see the xcode-ci skill).
+  - Verify the org and the user's membership: `gh api user/memberships/orgs/{githubOrg} -q .state` must print `active`. If it doesn't, surface the error and ask again.
+- Ask only for missing keys, and save each answer by merging it into the file so the other keys stay (for example `jq --arg v "<answer>" '. + {bundleIdPrefix: $v}'`, written back through a temp file; create `~/.config/` and the file if needed).
+- `{bundleIdPrefix}` and `{githubOrg}` below mean these values.
+
 ## Inputs to collect (ask in this order)
 
 Always recommend an answer. If the user says "default" / "你決定", apply the recommended value and move on.
@@ -78,19 +92,19 @@ Always recommend an answer. If the user says "default" / "你決定", apply the 
 
    Recommended defaults block to display verbatim:
    ```
-   Bundle ID:      com.cwlab.{ProjectName}
+   Bundle ID:      {bundleIdPrefix}.{ProjectName}
    Persistence:    SwiftData
    SwiftLint:      yes
    MVVM scaffold:  yes (Views/ ViewModels/ Services/ Repositories/ Models/ DI/ Extensions/ Config/)
    AI files:       CLAUDE.md + AGENTS_SHARED.md + agents.md symlink
    Gitignore AI:   no (commit CLAUDE.md and agents.md so teammates/agents see them)
-   GitHub owner:   {githubOrg} (organization, from the owner config) — if you push
+   GitHub owner:   {githubOrg} (organization, from the user config) — if you push
    CI runner:      self-hosted org runner (macOS, ARM64) — if you add CI
    ```
 
    GitHub push is **not** decided by this block — it's asked as a post-build prompt (see below) so the user can decide based on whether the build actually succeeded. The last two lines only pre-fill the defaults of those prompts.
 
-3. **Bundle identifier** — default `com.cwlab.{ProjectName}`.
+3. **Bundle identifier** — default `{bundleIdPrefix}.{ProjectName}`.
 4. **Persistence storage** — *"Do you need persistence? SwiftData / CoreData / GRDB / none?"*
    - Recommend **SwiftData** for new iOS 26 projects.
    - Suggest **GRDB** if the user needs heavy relational querying or fine SQL control.
@@ -107,31 +121,9 @@ Always recommend an answer. If the user says "default" / "你決定", apply the 
 Ask these **regardless of whether the user chose "use all defaults"** — the user needs to see a successful build before committing to a remote push.
 
 A. **Push to GitHub?** — no default. *"Build succeeded. Push to a new private GitHub repo?"* If no, stop here. If yes, continue.
-B. **GitHub Actions CI?** — only if A = yes. Default **yes**. *"Include `.github/workflows/ci.yml` that runs `xcodebuild test` on every PR?"*
-C. **Where should the macOS/iOS CI run?** — only if B = yes. **Always ask** (even in "use all defaults" mode), default **self-hosted org runner**:
-   - **Self-hosted org runner (default).** The repo is created in the `{githubOrg}` organization, and CI uses the runner registered once for that org (labels `self-hosted, macOS, ARM64`). Renders `ci-selfhosted.yml.template`. No per-repo runner registration is needed.
-   - **GitHub-hosted `macos-26`.** Renders `ci.yml.template`. Uses hosted Actions minutes, which have been blocked on this account before.
-   - A personal-account repo cannot use the org runner: personal-account self-hosted runners are repo-scoped only. If the user insists on a personal repo with a local runner, they must register a separate runner for that repo on the CI Mac.
+B. **GitHub Actions CI?** — only if A = yes. Default **yes**. *"Add GitHub Actions CI: a fast PR gate (SwiftLint + unit tests) and a separate UI test workflow?"* CI is set up by the **xcode-ci** skill, which also asks where CI runs (self-hosted org runner by default, GitHub-hosted on request). If the xcode-ci skill is not available in this session, say so, tell the user to install it (`/plugin install xcode-ci@<marketplace>`, from the same marketplace as this skill), and continue without CI.
 
-### Owner config
-
-The organization is not hard-coded. Read it from `~/.config/bootstrap-xcode-project.json`:
-
-```json
-{ "githubOrg": "<organization login>" }
-```
-
-- If the file or the `githubOrg` key is missing, ask once: *"Which GitHub organization should new repos and the shared self-hosted runner live in? Leave blank to use your personal account."* Save the answer to the file (create `~/.config/` if needed).
-- Blank or `null` means personal account: the defaults then become `GitHub owner: personal account` and `CI runner: GitHub-hosted`, because personal-account self-hosted runners are repo-scoped (see prompt C).
-- Verify the org and the user's membership: `gh api user/memberships/orgs/{githubOrg} -q .state` must print `active`. If it doesn't, surface the error and ask again.
-- `{githubOrg}` below means this value.
-
-### Org runner facts (learned bringing one up)
-- Check it: `gh api orgs/{githubOrg}/actions/runners -q '.runners[] | "\(.name) \(.status) busy=\(.busy)"'`. This needs the `admin:org` token scope (`gh auth refresh -h github.com -s admin:org`).
-- If it is **offline**, CI jobs sit in `queued` forever. On the CI Mac, go to the folder the runner was installed in (`./svc.sh status`, `./svc.sh start`). `launchctl list | grep actions.runner` must show a PID in the first column; a `-` means launchd started it and it exited. `./run.sh` in a terminal is a quick foreground check (`Listening for Jobs`).
-- The CI Mac must not sleep (closing the lid sleeps it even on power): `sudo pmset -a disablesleep 1`, or "Prevent automatic sleeping on power adapter when the display is off". A job interrupted by sleep shows as `cancelled`.
-- To register one (no `gh` needed on the CI Mac): open `https://github.com/organizations/{githubOrg}/settings/actions/runners/new`, choose macOS / ARM64, and run the Download and Configure commands it shows on the CI Mac. Then install it as a service with `./svc.sh install && ./svc.sh start` instead of `./run.sh`.
-- The runner needs Homebrew at `/opt/homebrew` (the workflow installs `xcodegen`, `jq` and `swiftlint` with it) and an Xcode new enough for the deployment target selected with `xcode-select`.
+Runner facts (checking, registering, sleep, disk) live in the xcode-ci skill's `references/self-hosted-runner.md`.
 
 ## Generation steps
 
@@ -139,7 +131,7 @@ Run these only after all questions are answered. Echo a one-line config summary 
 
 1. **Verify tooling:** `xcodegen --version`, `xcodebuild -version`. If `xcodegen` is missing, instruct `brew install xcodegen` and stop. (`gh` is checked later, only if the user opts into pushing.)
 2. **Create directory** `{ProjectName}/` and `cd` into it. Refuse if it already exists.
-3. **Render `project.yml`** from `assets/project.yml.template` via `scripts/substitute.sh`, passing all five placeholders. For `SwiftLintBuildPhase`, pass the YAML block above (quoted properly in shell) when SwiftLint is enabled, otherwise pass an empty string.
+3. **Render `project.yml`** from `assets/project.yml.template` via `scripts/substitute.sh`, passing all five placeholders (`BundleIDPrefix={bundleIdPrefix}`, `BundleID` = the bundle identifier from input 3). For `SwiftLintBuildPhase`, pass the YAML block above (quoted properly in shell) when SwiftLint is enabled, otherwise pass an empty string.
 4. **Create source folders:** `{ProjectName}/{Views,ViewModels,Services,Repositories,Models,DI,Extensions,Config}`, `{ProjectName}Tests/`, `{ProjectName}UITests/`. Then `touch` a `.gitkeep` in every folder that will still be empty after step 6 renders sources (typically `Views/`, `ViewModels/`, `Services/`, `Repositories/`, and `Models/` when no persistence file lands there). Do this **before** `xcodegen generate` (step 10), never after: XcodeGen records each `.gitkeep` as a file reference in the pbxproj (in its group, with no build phase — it is not compiled or bundled), so adding them after generating means the next `xcodegen generate` rewrites the pbxproj (drift). Adding them first keeps regeneration stable, and git tracks the otherwise-empty folders so a fresh clone regenerates an identical project. Do **not** exclude `**/.gitkeep` in `project.yml` — a folder whose only file is excluded is dropped from the project entirely, which deletes the empty MVVM groups. `Config/` lives **inside** `{ProjectName}/` — `project.yml` adds the whole app folder as sources but excludes `Config/*.xcconfig` from compilation, and points `configFiles` at the xcconfig path under `{ProjectName}/Config/`.
 5. **Render xcconfig pair into `{ProjectName}/Config/`:** copy `Environment.xcconfig.template` → `{ProjectName}/Config/Environment.xcconfig` and `Environment-Local.xcconfig.template` → `{ProjectName}/Config/Environment-Local.xcconfig` (no substitution). The committed `Environment.xcconfig` references `${API_HOST_NAME}` and `#include?`s the local file; `Environment-Local.xcconfig` is gitignored. Runtime exposure goes through the app target's `info:` block in `project.yml` — XcodeGen generates `{ProjectName}/Config/Info.plist` with `<NAME> = $(<NAME>)` entries that Xcode resolves from build settings. To add more credentials later: (a) add the key to both xcconfig files, (b) add `<NAME>: "$(<NAME>)"` under the app target's `info.properties` in `project.yml` and re-run `xcodegen generate`, (c) add the field to `AppConfig` so it gets decoded. **Never expose custom keys via `INFOPLIST_KEY_<NAME>` build settings** — `GENERATE_INFOPLIST_FILE` only injects Apple's curated set of `INFOPLIST_KEY_*` names and silently drops custom ones, so decoding `AppConfig` crashes at launch with `keyNotFound`.
 6. **Render starter sources** from each template in the asset index above, in this order:
@@ -158,20 +150,18 @@ Run these only after all questions are answered. Echo a one-line config summary 
 11. **Build verification:** `xcodebuild -scheme {ProjectName} -destination 'platform=iOS Simulator,name=<sim>' build`, where `<sim>` is picked dynamically — do **not** hardcode a device name; older-generation simulators may lack a runtime new enough for the deployment target (and `simctl list devices available` still lists those, so don't trust it either). Pick an iPhone from the scheme's actual eligible destinations: `xcodebuild -showdestinations -scheme {ProjectName} 2>/dev/null | grep 'platform:iOS Simulator' | sed -n 's/.*name:\(iPhone[^}]*\).*/\1/p' | sed 's/ *$//' | tail -1`. If the build fails, report and stop — do not proceed to the post-build prompts.
 12. **Post-build prompt A — push to GitHub?** Ask the user (always, even in "use all defaults" mode). If no, jump to Output. If yes:
     - Verify `gh --version` + `gh auth status`. If not authenticated, surface the error and stop.
-    - Ask post-build prompt B (GitHub Actions CI?) and, if yes, prompt C (where CI runs).
-    - **Self-hosted (default):** check the org runner first with the command under "Org runner facts". If no runner with the `macOS` label is `online`, tell the user that CI will queue until it is, and point to the checks listed there. Do not silently fall back to GitHub-hosted. Render `.github/workflows/ci.yml` from `ci-selfhosted.yml.template` with `ProjectName` and `GitHubOwner={githubOrg}`.
-    - **GitHub-hosted:** render `.github/workflows/ci.yml` from `ci.yml.template`.
-    - Render the workflow now, so it lands in the initial commit. Validate the YAML (`ruby -ryaml -e 'YAML.load_file(".github/workflows/ci.yml")'`).
-    - `git init -b main && git add . && git commit -m "feat: bootstrap {ProjectName}"` (follows the project's `feat/fix/refactor:` convention).
+    - Ask post-build prompt B (GitHub Actions CI?). If yes, run `git init -b main` and then invoke the **xcode-ci** skill, so the workflows land in the initial commit (actionlint needs the git root to resolve the local `prepare-ios` action). Pass what is already known so it only asks for the runner: new repo not created yet, owner `{githubOrg}` (or the personal account), `Scheme={ProjectName}`, `UnitTestTarget={ProjectName}Tests`, `UITestTarget={ProjectName}UITests`, `CIMajor` = the major of `IOSDeployment` (`26.0` → `26`), XcodeGen project, no existing CI. It renders and validates the files; leave committing and pushing to the steps below.
+    - `git init -b main` (skip if already done for CI) `&& git add . && git commit -m "feat: bootstrap {ProjectName}"` (follows the project's `feat/fix/refactor:` convention).
     - Org: `gh repo create {githubOrg}/{ProjectName} --private --source=. --remote=origin --push`. Personal account: `gh repo create {ProjectName} --private --source=. --remote=origin --push`.
-    - If CI was added, watch the first run once (`gh run list --repo <owner>/{ProjectName} --limit 1`), and report whether it was picked up by the expected runner.
+    - If CI was added, create the label that opts a PR into UI tests (xcode-ci could not, because the repo did not exist yet): `gh label create ui-tests --repo <owner>/{ProjectName} --color 1D76DB --description "Run the UI test workflow on this PR" --force`.
+    - If CI was added, watch the first runs once (`gh run list --repo <owner>/{ProjectName} --limit 2`), and report whether `CI` and `UI Tests` were picked up by the expected runner.
 
 ## Output
 
 End with a short summary:
 - Path to the generated `.xcodeproj`.
 - GitHub repo URL (if created).
-- CI: which runner it targets, and whether the first run was picked up (or is queued because the runner is offline).
+- CI: which runner it targets, that UI tests run on main / on demand / with the `ui-tests` PR label, and whether the first runs were picked up (or are queued because the runner is offline).
 - Next steps: `open {ProjectName}.xcodeproj` or `xcodebuild test -scheme {ProjectName} -destination 'platform=iOS Simulator,name=<sim>'` (reuse the simulator picked in step 11 — plain `xcodebuild test` with no destination fails against the generic iOS device).
 
 ## Rules

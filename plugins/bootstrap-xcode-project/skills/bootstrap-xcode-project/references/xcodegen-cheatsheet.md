@@ -6,7 +6,7 @@ Load this only when the generated `project.yml` fails to parse or you need a fie
 
 - `name` — project name (matches `.xcodeproj` basename).
 - `options` — global options. Useful subfields:
-  - `bundleIdPrefix: com.cwlab` — used when a target omits an explicit `PRODUCT_BUNDLE_IDENTIFIER`.
+  - `bundleIdPrefix: com.example` — used when a target omits an explicit `PRODUCT_BUNDLE_IDENTIFIER`.
   - `deploymentTarget.iOS: "26.0"`
   - `createIntermediateGroups: true` — mirrors folder structure as Xcode groups.
   - `generateEmptyDirectories: true` — keeps empty folders like `Views/` visible.
@@ -43,7 +43,7 @@ targets:
       - sdk: CoreData.framework  # system framework
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.cwlab.MyApp
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.MyApp
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
     info:                         # merged with GENERATE_INFOPLIST_FILE output (explicit file wins)

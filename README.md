@@ -4,8 +4,9 @@ Whitney's personal Claude Code skills, packaged as a [Claude Code marketplace](h
 
 ## Skills in this marketplace
 
-- **bootstrap-xcode-project** — Scaffold a new iOS Xcode project via XcodeGen (`.xcodeproj`, Swift Testing + XCUITest, MVVM folders, optional SwiftData/CoreData/GRDB, SwiftLint, xcconfig credentials, private GitHub repo + CI).
+- **bootstrap-xcode-project** — Scaffold a new iOS Xcode project via XcodeGen (`.xcodeproj`, Swift Testing + XCUITest, MVVM folders, optional SwiftData/CoreData/GRDB, SwiftLint, xcconfig credentials, private GitHub repo; CI through the xcode-ci skill).
 - **publish-skill** — Promote a local Claude Code skill into a marketplace repo — generates plugin.json, updates marketplace.json + README, commits and pushes.
+- **xcode-ci** — Set up or upgrade GitHub Actions CI for an Xcode app — a fast PR gate (SwiftLint + unit tests) and a separate UI test workflow, on a self-hosted macOS runner with persistent DerivedData or on GitHub-hosted runners.
 
 ## Install
 
@@ -15,6 +16,7 @@ Inside any Claude Code session:
 /plugin marketplace add whitney13625/claude-skills
 /plugin install bootstrap-xcode-project@whitney-claude-skills
 /plugin install publish-skill@whitney-claude-skills
+/plugin install xcode-ci@whitney-claude-skills
 ```
 
 The `@whitney-claude-skills` suffix is the marketplace `name` field from `.claude-plugin/marketplace.json` — not the GitHub repo name.

@@ -8,7 +8,7 @@
 #
 # Example:
 #   substitute.sh assets/project.yml.template ./project.yml \
-#     ProjectName=Foo BundleID=com.cwlab.Foo BundleIDPrefix=com.cwlab \
+#     ProjectName=Foo BundleID=com.example.Foo BundleIDPrefix=com.example \
 #     IOSDeployment=26.0 SwiftLintBuildPhase=""
 #
 # Notes:

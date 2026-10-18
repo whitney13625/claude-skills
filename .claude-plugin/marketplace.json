@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "bootstrap-xcode-project",
-      "description": "Scaffold a new iOS Xcode project via XcodeGen — .xcodeproj, Swift Testing + XCUITest targets, MVVM folders, optional SwiftData/CoreData/GRDB, SwiftLint, private GitHub repo, GitHub Actions CI.",
+      "description": "Scaffold a new iOS Xcode project via XcodeGen — .xcodeproj, Swift Testing + XCUITest targets, MVVM folders, optional SwiftData/CoreData/GRDB, SwiftLint, private GitHub repo; GitHub Actions CI through the xcode-ci skill.",
       "category": "development",
       "source": "./plugins/bootstrap-xcode-project"
     },
@@ -17,6 +17,12 @@
       "description": "Promote a local Claude Code skill into a marketplace repo — generates plugin.json, updates marketplace.json + README, commits and pushes.",
       "category": "development",
       "source": "./plugins/publish-skill"
+    },
+    {
+      "name": "xcode-ci",
+      "description": "Set up or upgrade GitHub Actions CI for an Xcode app — a fast PR gate (SwiftLint + unit tests) and a separate UI test workflow, on a self-hosted macOS runner with persistent DerivedData or on GitHub-hosted runners.",
+      "category": "development",
+      "source": "./plugins/xcode-ci"
     }
   ]
 }

@@ -1,0 +1,68 @@
+# placeholders: Scheme, UITestTarget, CIMajor
+name: UI Tests
+
+# The slow XCUITest suite, kept out of the PR gate (ci.yml). It runs after every merge to main, weekly from a
+# clean DerivedData, on demand, and on a PR while it carries the `ui-tests` label.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled]
+  schedule:
+    # Mondays 03:00 UTC.
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  # Keep in step with CI_MAJOR in ci.yml.
+  CI_MAJOR: "{{CIMajor}}"
+
+jobs:
+  ui-test:
+    name: UI Test
+    if: >-
+      github.event_name != 'pull_request'
+      || contains(github.event.pull_request.labels.*.name, 'ui-tests')
+    runs-on: [self-hosted, macOS, ARM64]
+    # Longer than ci.yml: the weekly run builds from scratch before the suite.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Prepare iOS build
+        id: prepare
+        uses: ./.github/actions/prepare-ios
+        with:
+          ci-major: ${{ env.CI_MAJOR }}
+          clean-derived-data: ${{ github.event_name == 'schedule' }}
+
+      - name: UI Test
+        run: |
+          RESULT="$RUNNER_TEMP/UITestResults.xcresult"
+          rm -rf "$RESULT"
+          xcodebuild test \
+            -scheme {{Scheme}} \
+            -destination "id=${{ steps.prepare.outputs.udid }}" \
+            -derivedDataPath "${{ steps.prepare.outputs.derived-data }}" \
+            -resultBundlePath "$RESULT" \
+            -only-testing:{{UITestTarget}}
+
+      - name: Delete the simulator
+        if: always() && steps.prepare.outputs.udid != ''
+        run: xcrun simctl delete "${{ steps.prepare.outputs.udid }}" || true
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: UITestResults
+          path: ${{ runner.temp }}/UITestResults.xcresult

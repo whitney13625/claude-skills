@@ -1,5 +1,8 @@
-# placeholders: ProjectName
+# placeholders: Scheme, UnitTestTarget
 name: CI
+
+# The fast gate for every PR and push to main: SwiftLint and the unit tests. The slow XCUITest suite lives in
+# ui-tests.yml so PR feedback does not wait on it.
 
 on:
   push:
@@ -9,11 +12,15 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Cancel superseded runs on pull requests only; every push to main keeps its full result.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
 
 jobs:
   test:
-    name: Build & Test
+    name: Lint & Unit Test
     # macos-26 ships stable Xcode 26.x. Bump to macos-27 once a stable
     # Xcode 27 runner is available and the project targets iOS 27.
     runs-on: macos-26
@@ -26,24 +33,27 @@ jobs:
         with:
           xcode-version: latest-stable
 
+      - name: Install build tools (XcodeGen, SwiftLint)
+        run: brew install xcodegen swiftlint
+
       - name: Show toolchain
         run: |
           xcodebuild -version
           xcrun simctl list runtimes iOS
 
-      - name: Install XcodeGen
-        run: brew install xcodegen
-
+      # Only for XcodeGen projects; a committed .xcodeproj is used as is.
       - name: Generate Xcode project
+        if: hashFiles('project.yml') != ''
         run: xcodegen generate
 
-      # SwiftLint isn't run in CI by default — the project.yml pre-build
-      # script still runs it locally during xcodebuild. To enforce in CI, add:
-      #
-      # - name: SwiftLint
-      #   run: |
-      #     which swiftlint >/dev/null || brew install swiftlint
-      #     swiftlint            # add --strict once the baseline is clean
+      # Errors fail the job; warnings show up as annotations on the PR.
+      - name: SwiftLint
+        run: |
+          if [ -f .swiftlint.yml ]; then
+            swiftlint lint --reporter github-actions-logging
+          else
+            echo "No .swiftlint.yml, skipping SwiftLint"
+          fi
 
       - name: Pick latest iPhone simulator
         id: simulator
@@ -65,26 +75,23 @@ jobs:
             xcrun simctl list devices available
             exit 1
           fi
-          NAME=$(xcrun simctl list devices available --json | jq -r --arg udid "$UDID" '
-            [.devices[][]] | map(select(.udid == $udid)) | first | .name
-          ')
-          echo "Using simulator: $NAME ($UDID)"
+          echo "Using simulator $UDID"
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
 
-      - name: Build & Test
+      # Plain xcodebuild output (no xcpretty), so the Swift Testing summary shows up in the log.
+      # Hosted runners start clean every time, so DerivedData lives in the per-job temp dir.
+      - name: Build & Unit Test
         run: |
-          set -o pipefail
           xcodebuild test \
-            -scheme {{ProjectName}} \
+            -scheme {{Scheme}} \
             -destination "id=${{ steps.simulator.outputs.udid }}" \
-            -resultBundlePath TestResults.xcresult \
-            | xcpretty || xcodebuild test \
-              -scheme {{ProjectName}} \
-              -destination "id=${{ steps.simulator.outputs.udid }}"
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            -resultBundlePath "$RUNNER_TEMP/TestResults.xcresult" \
+            -only-testing:{{UnitTestTarget}}
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v5
         with:
           name: TestResults
-          path: TestResults.xcresult
+          path: ${{ runner.temp }}/TestResults.xcresult

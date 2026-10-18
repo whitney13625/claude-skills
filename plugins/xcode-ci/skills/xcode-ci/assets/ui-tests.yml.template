@@ -1,0 +1,85 @@
+# placeholders: Scheme, UITestTarget
+name: UI Tests
+
+# The slow XCUITest suite, kept out of the PR gate (ci.yml). It runs after every merge to main, on demand, and
+# on a PR while it carries the `ui-tests` label. No weekly clean run: hosted runners always build from scratch,
+# and a schedule would only spend Actions minutes.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  ui-test:
+    name: UI Test
+    if: >-
+      github.event_name != 'pull_request'
+      || contains(github.event.pull_request.labels.*.name, 'ui-tests')
+    # Keep in step with runs-on in ci.yml.
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Select Xcode (latest stable on runner)
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      # Only for XcodeGen projects; a committed .xcodeproj is used as is.
+      - name: Generate Xcode project
+        if: hashFiles('project.yml') != ''
+        run: xcodegen generate
+
+      - name: Pick latest iPhone simulator
+        id: simulator
+        run: |
+          set -euo pipefail
+          UDID=$(xcrun simctl list devices available --json | jq -r '
+            .devices
+            | to_entries
+            | map(select(.key | test("SimRuntime.iOS-")))
+            | sort_by(.key | sub(".*iOS-"; "") | split("-") | map(tonumber))
+            | last
+            | .value
+            | map(select(.name | startswith("iPhone")))
+            | first
+            | .udid
+          ')
+          if [ -z "$UDID" ] || [ "$UDID" = "null" ]; then
+            echo "::error::No iPhone simulator available on this runner"
+            xcrun simctl list devices available
+            exit 1
+          fi
+          echo "Using simulator $UDID"
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: UI Test
+        run: |
+          xcodebuild test \
+            -scheme {{Scheme}} \
+            -destination "id=${{ steps.simulator.outputs.udid }}" \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            -resultBundlePath "$RUNNER_TEMP/UITestResults.xcresult" \
+            -only-testing:{{UITestTarget}}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: UITestResults
+          path: ${{ runner.temp }}/UITestResults.xcresult
